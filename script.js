@@ -1,5 +1,14 @@
 // ============ 家的味道 · 家常菜谱 ============
 const STORAGE_KEY = 'family_menu_custom_dishes_v1';
+const DRAW_SEED_KEY = 'family_menu_daily_draw_seed_v1';
+
+// 抽卡套餐结构：按卡槽定义每格应该从哪个分类里抽
+const DRAW_SLOTS = [
+    { slot: '主食', categoryIds: ['staple'] },
+    { slot: '硬菜', categoryIds: ['big', 'couple'] },
+    { slot: '小炒', categoryIds: ['quick', 'couple'] },
+    { slot: '汤羹', categoryIds: ['soup'] }
+];
 
 class FamilyMenu {
     constructor() {
@@ -16,6 +25,7 @@ class FamilyMenu {
             this.renderSiteInfo();
             this.renderCategoryNav();
             this.populateCategorySelect();
+            this.renderDailyDraw();
             this.renderMenu();
             this.bindEvents();
         } catch (err) {
@@ -388,6 +398,232 @@ class FamilyMenu {
                 this.closeAddForm();
             }
         });
+
+        // 再摇一次
+        const redrawBtn = document.getElementById('btn-redraw');
+        if (redrawBtn) {
+            redrawBtn.addEventListener('click', () => this.redraw());
+        }
+    }
+
+    // ====================================================
+    // 今日抽卡
+    // ====================================================
+
+    /** 今日日期 key：yyyy-mm-dd */
+    todayKey() {
+        const d = new Date();
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    /** 基于字符串的可预测伪随机数生成器（mulberry32 + 简易哈希） */
+    seededRandom(seedStr) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < seedStr.length; i++) {
+            h ^= seedStr.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        let a = h >>> 0;
+        return function() {
+            a |= 0; a = a + 0x6D2B79F5 | 0;
+            let t = Math.imul(a ^ a >>> 15, 1 | a);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+    }
+
+    /** 读取/生成当天的种子；同一天同一种子，换天自动变 */
+    getTodaySeed() {
+        const today = this.todayKey();
+        let cache = null;
+        try {
+            const raw = localStorage.getItem(DRAW_SEED_KEY);
+            if (raw) cache = JSON.parse(raw);
+        } catch { /* ignore */ }
+
+        if (cache && cache.date === today && typeof cache.seed === 'string') {
+            return cache.seed;
+        }
+        const seed = `${today}-${Math.random().toString(36).slice(2, 10)}`;
+        try {
+            localStorage.setItem(DRAW_SEED_KEY, JSON.stringify({ date: today, seed }));
+        } catch { /* ignore */ }
+        return seed;
+    }
+
+    /** 强制生成新种子（再摇一次） */
+    regenerateSeed() {
+        const today = this.todayKey();
+        const seed = `${today}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        try {
+            localStorage.setItem(DRAW_SEED_KEY, JSON.stringify({ date: today, seed }));
+        } catch { /* ignore */ }
+        return seed;
+    }
+
+    /** 抽一桌菜，返回每个卡槽对应的菜品 */
+    drawMeal(seed) {
+        const rand = this.seededRandom(seed);
+        const merged = this.getMergedCategories();
+        const catMap = new Map(merged.map(c => [c.id, c]));
+        const usedIds = new Set();
+
+        const picks = DRAW_SLOTS.map(slot => {
+            // 收集此卡槽可用的候选菜
+            const pool = [];
+            slot.categoryIds.forEach(cid => {
+                const cat = catMap.get(cid);
+                if (!cat) return;
+                cat.dishes.forEach(d => {
+                    if (!usedIds.has(d.id)) pool.push(d);
+                });
+            });
+            if (pool.length === 0) return { slot: slot.slot, dish: null };
+
+            // 二人食加权：带 "二人食" 标签的菜品双倍命中
+            const weighted = [];
+            pool.forEach(d => {
+                const w = (d.tags || []).includes('二人食') ? 2 : 1;
+                for (let i = 0; i < w; i++) weighted.push(d);
+            });
+
+            const picked = weighted[Math.floor(rand() * weighted.length)];
+            usedIds.add(picked.id);
+            return { slot: slot.slot, dish: picked };
+        });
+
+        return picks;
+    }
+
+    /** 渲染今日抽卡区块（首次进入：卡背；点击或已翻则正面） */
+    renderDailyDraw() {
+        const seed = this.getTodaySeed();
+        this.currentDraw = this.drawMeal(seed);
+
+        // 日期展示
+        const dateEl = document.getElementById('draw-date');
+        if (dateEl) {
+            const today = this.todayKey();
+            const weekday = ['周日','周一','周二','周三','周四','周五','周六'][new Date().getDay()];
+            dateEl.textContent = `${today} · ${weekday} — 点击卡片翻牌`;
+        }
+
+        // 渲染卡片
+        const container = document.getElementById('draw-cards');
+        if (!container) return;
+        container.innerHTML = '';
+
+        this.currentDraw.forEach(item => {
+            const card = this.createFlipCard(item);
+            container.appendChild(card);
+        });
+
+        this.renderDrawSummary(false);
+    }
+
+    createFlipCard({ slot, dish }) {
+        const card = document.createElement('div');
+        card.className = 'flip-card';
+        card.tabIndex = 0;
+
+        if (!dish) {
+            card.innerHTML = `
+                <div class="flip-back">—</div>
+                <div class="flip-inner">
+                    <div class="flip-slot">${this.escape(slot)}</div>
+                    <div class="flip-emoji">🤷</div>
+                    <div class="flip-body">
+                        <div class="flip-name">菜品不足</div>
+                        <div class="flip-meta">添加更多菜后再抽</div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        card.innerHTML = `
+            <div class="flip-back">${this.escape(slot)}</div>
+            <div class="flip-inner">
+                <div class="flip-slot">${this.escape(slot)}</div>
+                <div class="flip-emoji">${dish.emoji || '🍽️'}</div>
+                <div class="flip-body">
+                    <div class="flip-name">${this.escape(dish.name)}</div>
+                    <div class="flip-meta">
+                        ${dish.time ? `⏱ ${this.escape(dish.time)}` : ''}
+                        ${dish.difficulty ? ` · ${this.escape(dish.difficulty)}` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let flipped = false;
+        const toggleOrOpen = () => {
+            if (!flipped) {
+                card.classList.add('flipped');
+                flipped = true;
+                // 检查是否全部翻开
+                setTimeout(() => this.checkAllFlipped(), 400);
+            } else {
+                this.openRecipe(dish);
+            }
+        };
+        card.addEventListener('click', toggleOrOpen);
+        card.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleOrOpen();
+            }
+        });
+
+        return card;
+    }
+
+    checkAllFlipped() {
+        const all = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
+        if (all.length === 0) return;
+        const allFlipped = all.every(c => c.classList.contains('flipped'));
+        if (allFlipped) this.renderDrawSummary(true);
+    }
+
+    renderDrawSummary(reveal) {
+        const el = document.getElementById('draw-summary');
+        if (!el) return;
+        if (!reveal || !this.currentDraw) {
+            el.classList.add('hidden');
+            el.innerHTML = '';
+            return;
+        }
+        const list = this.currentDraw
+            .filter(x => x.dish)
+            .map(x => `<b>${this.escape(x.slot)}</b>「${this.escape(x.dish.name)}」`)
+            .join(' · ');
+        el.classList.remove('hidden');
+        el.innerHTML = `🎉 今日两人食：${list}`;
+    }
+
+    /** 再摇一次：生成新种子、抖动动画、翻回背面再翻开 */
+    redraw() {
+        const cards = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
+
+        // 先抖动
+        cards.forEach(c => {
+            c.classList.remove('shaking');
+            void c.offsetWidth; // reflow
+            c.classList.add('shaking');
+        });
+
+        // 先全部翻回去
+        setTimeout(() => {
+            cards.forEach(c => c.classList.remove('flipped'));
+        }, 300);
+
+        // 再生成新内容并重新渲染
+        setTimeout(() => {
+            this.regenerateSeed();
+            this.renderDailyDraw();
+            this.toast('🎲 已重新抽取今日菜单');
+        }, 700);
     }
 
     // ---- 轻提示 ----

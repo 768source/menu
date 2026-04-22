@@ -669,3 +669,217 @@ body.modal-open { overflow: hidden; }
     .fab { right: 18px; bottom: 22px; width: 52px; height: 52px; font-size: 1.7rem; }
     .recipe-actions { padding: 0 20px 22px; }
 }
+
+/* ============ 今日抽卡 ============ */
+.daily-draw {
+    background: linear-gradient(135deg, #fff8ef 0%, #fff 60%, #fff4e6 100%);
+    border: 2px dashed rgba(232, 90, 79, 0.3);
+    border-radius: 22px;
+    padding: 26px 24px 28px;
+    margin-bottom: 40px;
+    box-shadow: 0 12px 28px rgba(216, 130, 92, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.daily-draw::before {
+    content: "🎴";
+    position: absolute;
+    top: -18px;
+    right: -18px;
+    font-size: 9rem;
+    opacity: 0.07;
+    transform: rotate(14deg);
+    pointer-events: none;
+}
+
+.draw-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.draw-title {
+    font-size: 1.5rem;
+    color: var(--primary-dark);
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.draw-subtitle {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin-top: 4px;
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 0.88rem;
+    border-radius: 999px;
+}
+
+.draw-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    perspective: 1000px;
+}
+
+/* 抽卡翻牌 */
+.flip-card {
+    position: relative;
+    height: 210px;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform .7s cubic-bezier(.2,.9,.3,1.2);
+}
+
+.flip-card.flipped {
+    transform: rotateY(180deg);
+}
+
+.flip-inner,
+.flip-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 18px rgba(216, 130, 92, 0.18);
+}
+
+/* 背面（卡背） */
+.flip-back {
+    background:
+        linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 2.2rem;
+    letter-spacing: 3px;
+    border: 3px solid #fff;
+    box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.4),
+        0 8px 18px rgba(232, 90, 79, .35);
+}
+
+.flip-back::after {
+    content: "点击翻牌";
+    position: absolute;
+    bottom: 16px;
+    font-size: 0.78rem;
+    letter-spacing: 2px;
+    opacity: 0.85;
+    font-weight: 500;
+}
+
+/* 正面（实际菜品） */
+.flip-inner {
+    background: #fff;
+    transform: rotateY(180deg);
+    border: 2px solid var(--accent);
+}
+
+.flip-slot {
+    font-size: 0.72rem;
+    color: var(--primary-dark);
+    background: var(--accent-light);
+    padding: 4px 10px;
+    text-align: center;
+    letter-spacing: 1px;
+    font-weight: 700;
+    border-bottom: 1px dashed var(--border);
+}
+
+.flip-emoji {
+    font-size: 3rem;
+    text-align: center;
+    padding: 14px 0 6px;
+    background: linear-gradient(180deg, var(--accent-light), #fff);
+}
+
+.flip-body {
+    padding: 10px 12px 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.flip-name {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.3;
+}
+
+.flip-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+}
+
+.flip-card:not(.flipped) .flip-back:hover {
+    transform: scale(1.03);
+    transition: transform .3s;
+}
+
+/* 抽卡入场动画 */
+@keyframes cardFloat {
+    0%   { opacity: 0; transform: translateY(30px) rotateY(0); }
+    100% { opacity: 1; transform: translateY(0) rotateY(0); }
+}
+.flip-card { animation: cardFloat .5s ease both; }
+.flip-card:nth-child(2) { animation-delay: .1s; }
+.flip-card:nth-child(3) { animation-delay: .2s; }
+.flip-card:nth-child(4) { animation-delay: .3s; }
+.flip-card:nth-child(5) { animation-delay: .4s; }
+
+/* 抖动（重摇时） */
+@keyframes shake {
+    0%, 100% { transform: translateX(0) rotateY(0); }
+    20% { transform: translateX(-6px) rotateY(-5deg); }
+    40% { transform: translateX(6px) rotateY(5deg); }
+    60% { transform: translateX(-4px) rotateY(-3deg); }
+    80% { transform: translateX(4px) rotateY(3deg); }
+}
+.flip-card.shaking { animation: shake .5s; }
+
+.draw-summary {
+    margin-top: 18px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 12px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.8;
+    border: 1px solid var(--border);
+}
+
+.draw-summary b { color: var(--primary-dark); }
+
+.draw-summary.hidden { display: none; }
+
+@media (max-width: 560px) {
+    .daily-draw { padding: 20px 16px 22px; }
+    .draw-title { font-size: 1.25rem; }
+    .draw-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .flip-card { height: 190px; }
+    .flip-emoji { font-size: 2.4rem; padding: 10px 0 4px; }
+    .flip-name { font-size: 0.92rem; }
+    .flip-back { font-size: 1.6rem; }
+}
+
+@media (max-width: 380px) {
+    .draw-cards { grid-template-columns: repeat(2, 1fr); }
+}

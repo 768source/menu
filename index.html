@@ -20,6 +20,25 @@
     </header>
 
     <main>
+        <!-- 今日抽卡区块 -->
+        <section id="daily-draw" class="daily-draw">
+            <div class="draw-header">
+                <div class="draw-title-wrap">
+                    <h2 class="draw-title">🎴 今日两人食</h2>
+                    <p class="draw-subtitle" id="draw-date">— 翻卡抽取今日菜单 —</p>
+                </div>
+                <div class="draw-actions">
+                    <button type="button" id="btn-redraw" class="btn btn-ghost btn-sm" title="重新抽取">
+                        🎲 再摇一次
+                    </button>
+                </div>
+            </div>
+            <div class="draw-cards" id="draw-cards">
+                <!-- 翻牌抽卡区，由 JS 填充 -->
+            </div>
+            <div class="draw-summary" id="draw-summary"></div>
+        </section>
+
         <section id="menu-container">
             <!-- 菜谱内容通过 JS 动态生成 -->
         </section>
