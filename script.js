@@ -508,6 +508,25 @@ class FamilyMenu {
                 this.switchMeal(meal);
             });
         });
+
+        // 回顶部按钮
+        const fabTop = document.getElementById('fab-top');
+        if (fabTop) {
+            fabTop.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            const toggleFabTop = () => {
+                // 滚动超过一屏高度的 60% 时显示
+                const threshold = Math.max(300, window.innerHeight * 0.6);
+                if (window.scrollY > threshold) {
+                    fabTop.classList.remove('hidden');
+                } else {
+                    fabTop.classList.add('hidden');
+                }
+            };
+            window.addEventListener('scroll', toggleFabTop, { passive: true });
+            toggleFabTop(); // 初始化
+        }
     }
 
     // ====================================================
