@@ -3,20 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>家庭菜单</title>
+    <title>家的味道 · 家常菜谱</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>家庭菜单</h1>
+    <header class="hero">
+        <div class="hero-inner">
+            <h1 id="site-title">家的味道</h1>
+            <p id="site-subtitle" class="subtitle"></p>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="搜索菜名、食材、标签…（比如：番茄、下饭、10分钟）">
+            </div>
+            <nav id="category-nav" class="category-nav"></nav>
+        </div>
     </header>
-    
+
     <main>
         <section id="menu-container">
-            <!-- 菜单内容将通过JavaScript动态生成 -->
+            <!-- 菜谱内容通过 JS 动态生成 -->
         </section>
+        <p class="footer-note">💡 点击卡片查看做法 · 点击右下角 <b>➕</b> 添加自己想吃的菜</p>
     </main>
-    
+
+    <!-- 悬浮添加按钮 -->
+    <button id="fab-add" class="fab" aria-label="添加菜品" title="添加一道菜">
+        <span>＋</span>
+    </button>
+
+    <!-- 菜谱详情弹窗 -->
+    <div id="recipe-modal" class="modal hidden" aria-hidden="true">
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-panel" role="dialog" aria-modal="true">
+            <button class="modal-close" data-close aria-label="关闭">✕</button>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- 添加菜品表单弹窗 -->
+    <div id="add-modal" class="modal hidden" aria-hidden="true">
+        <div class="modal-backdrop" data-close-add></div>
+        <div class="modal-panel" role="dialog" aria-modal="true">
+            <button class="modal-close" data-close-add aria-label="关闭">✕</button>
+            <div class="form-hero">
+                <span class="form-emoji">🥘</span>
+                <h2>添加一道菜</h2>
+                <p class="form-tip">数据保存在本机浏览器，清缓存会丢失哦</p>
+            </div>
+            <form id="add-form" class="add-form" novalidate>
+                <div class="form-row">
+                    <label>
+                        <span class="label-text">菜名 <em>*</em></span>
+                        <input type="text" name="name" required maxlength="20" placeholder="例如：妈妈牌番茄炒蛋">
+                    </label>
+                    <label class="emoji-field">
+                        <span class="label-text">表情图标</span>
+                        <input type="text" name="emoji" maxlength="4" placeholder="🍳" value="🍽️">
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>
+                        <span class="label-text">所属分类 <em>*</em></span>
+                        <select name="categoryId" id="add-category-select" required></select>
+                    </label>
+                    <label>
+                        <span class="label-text">烹饪时长</span>
+                        <input type="text" name="time" maxlength="20" placeholder="例如：15 分钟">
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>
+                        <span class="label-text">难度</span>
+                        <select name="difficulty">
+                            <option value="">不填</option>
+                            <option value="新手">新手</option>
+                            <option value="简单" selected>简单</option>
+                            <option value="中等">中等</option>
+                            <option value="进阶">进阶</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span class="label-text">标签（逗号分隔）</span>
+                        <input type="text" name="tags" maxlength="60" placeholder="例如：下饭,快手,孩子爱吃">
+                    </label>
+                </div>
+
+                <label class="full-row">
+                    <span class="label-text">食材清单（每行一个）</span>
+                    <textarea name="ingredients" rows="4" placeholder="例如：&#10;番茄 2 个&#10;鸡蛋 3 个&#10;小葱 1 根"></textarea>
+                </label>
+
+                <label class="full-row">
+                    <span class="label-text">做法步骤（每行一步）</span>
+                    <textarea name="steps" rows="5" placeholder="例如：&#10;番茄去皮切块&#10;鸡蛋打散炒熟盛出&#10;下番茄炒出汁，回锅鸡蛋翻匀即可"></textarea>
+                </label>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-ghost" data-close-add>取消</button>
+                    <button type="submit" class="btn btn-primary">保存菜品</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
