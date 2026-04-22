@@ -1,0 +1,89 @@
+{
+  "restaurantName": "家庭厨房",
+  "categories": [
+    {
+      "id": "main",
+      "name": "主食",
+      "dishes": [
+        {
+          "id": "fried-rice",
+          "name": "蛋炒饭",
+          "price": 15,
+          "description": "香喷喷的蛋炒饭，配料丰富"
+        },
+        {
+          "id": "noodles",
+          "name": "家常面",
+          "price": 12,
+          "description": "手工制作的家常面条"
+        },
+        {
+          "id": "dumplings",
+          "name": "水饺",
+          "price": 18,
+          "description": "鲜肉韭菜馅手工水饺"
+        }
+      ]
+    },
+    {
+      "id": "dishes",
+      "name": "菜品",
+      "dishes": [
+        {
+          "id": "tomato-egg",
+          "name": "西红柿炒蛋",
+          "price": 20,
+          "description": "经典家常菜，酸甜可口"
+        },
+        {
+          "id": "kung-pao-chicken",
+          "name": "宫保鸡丁",
+          "price": 25,
+          "description": "香辣可口，花生脆爽"
+        },
+        {
+          "id": "mapo-tofu",
+          "name": "麻婆豆腐",
+          "price": 22,
+          "description": "麻辣鲜香，下饭神器"
+        }
+      ]
+    },
+    {
+      "id": "soup",
+      "name": "汤类",
+      "dishes": [
+        {
+          "id": "egg-drop-soup",
+          "name": "蛋花汤",
+          "price": 10,
+          "description": "清淡可口的蛋花汤"
+        },
+        {
+          "id": "tomato-soup",
+          "name": "西红柿汤",
+          "price": 12,
+          "description": "酸甜开胃的西红柿汤"
+        }
+      ]
+    },
+    {
+      "id": "drinks",
+      "name": "饮品",
+      "dishes": [
+        {
+          "id": "green-tea",
+          "name": "绿茶",
+          "price": 5,
+          "description": "清香绿茶"
+        },
+        {
+          "id": "orange-juice",
+          "name": "橙汁",
+          "price": 8,
+          "description": "鲜榨橙汁"
+        }
+      ]
+    }
+  ]
+}
