@@ -25,11 +25,30 @@
                     <p class="draw-subtitle" id="draw-date">— 翻卡抽取今日菜单 —</p>
                 </div>
                 <div class="draw-actions">
-                    <button type="button" id="btn-redraw" class="btn btn-ghost btn-sm" title="重新抽取">
+                    <button type="button" id="btn-redraw" class="btn btn-ghost btn-sm" title="重新抽取本餐">
                         🎲 再摇一次
                     </button>
                 </div>
             </div>
+
+            <!-- 三餐 Tab 切换 -->
+            <div class="meal-tabs" id="meal-tabs" role="tablist">
+                <button type="button" class="meal-tab" data-meal="breakfast" role="tab">
+                    <span class="meal-tab-icon">🌅</span>
+                    <span class="meal-tab-name">早餐</span>
+                </button>
+                <button type="button" class="meal-tab" data-meal="lunch" role="tab">
+                    <span class="meal-tab-icon">🌞</span>
+                    <span class="meal-tab-name">午餐</span>
+                </button>
+                <button type="button" class="meal-tab" data-meal="dinner" role="tab">
+                    <span class="meal-tab-icon">🌙</span>
+                    <span class="meal-tab-name">晚餐</span>
+                </button>
+            </div>
+
+            <p class="meal-tip" id="meal-tip">营养搭配 · 荤素均衡</p>
+
             <div class="draw-cards" id="draw-cards">
                 <!-- 翻牌抽卡区，由 JS 填充 -->
             </div>

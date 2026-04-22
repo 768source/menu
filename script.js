@@ -1,20 +1,71 @@
 // ============ 家的味道 · 家常菜谱 ============
 const STORAGE_KEY = 'family_menu_custom_dishes_v1';
-const DRAW_SEED_KEY = 'family_menu_daily_draw_seed_v1';
+const DRAW_SEED_KEY = 'family_menu_daily_draw_seed_v2';
+const ACTIVE_MEAL_KEY = 'family_menu_active_meal_v1';
 
-// 抽卡套餐结构：按卡槽定义每格应该从哪个分类里抽
-const DRAW_SLOTS = [
-    { slot: '主食', categoryIds: ['staple'] },
-    { slot: '硬菜', categoryIds: ['big', 'couple'] },
-    { slot: '小炒', categoryIds: ['quick', 'couple'] },
-    { slot: '汤羹', categoryIds: ['soup'] }
-];
+// ---- 餐段配置：不同餐段有不同的卡槽和类别偏好 ----
+// 每一餐都遵循"有主食 + 有蛋白 + 有蔬菜"的营养原则
+const MEAL_PLANS = {
+    breakfast: {
+        name: '早餐',
+        icon: '🌅',
+        tip: '🥣 简单快手 · 蛋白+碳水，开启一天',
+        slots: [
+            { slot: '主食', need: ['staple-breakfast'], fallback: ['staple'] },
+            { slot: '搭配', need: ['protein-light', 'veg-light'], fallback: ['cold', 'quick'] }
+        ]
+    },
+    lunch: {
+        name: '午餐',
+        icon: '🌞',
+        tip: '🍱 吃饱有力 · 一荤一素一汤一主食',
+        slots: [
+            { slot: '主食', need: ['staple'], fallback: ['staple'] },
+            { slot: '荤菜', need: ['meat'], fallback: ['big', 'couple'] },
+            { slot: '素菜', need: ['veg'], fallback: ['quick', 'cold'] },
+            { slot: '汤羹', need: ['soup'], fallback: ['soup'] }
+        ]
+    },
+    dinner: {
+        name: '晚餐',
+        icon: '🌙',
+        tip: '🌿 清淡易消化 · 少油少负担，睡得香',
+        slots: [
+            { slot: '主食', need: ['staple-light'], fallback: ['staple'] },
+            { slot: '小炒', need: ['meat-light'], fallback: ['couple', 'quick'] },
+            { slot: '素菜', need: ['veg'], fallback: ['quick', 'cold'] },
+            { slot: '汤羹', need: ['soup'], fallback: ['soup'] }
+        ]
+    }
+};
+
+// ---- 营养/餐段自动推断关键词库 ----
+const NUTRITION_RULES = {
+    // 早餐主食关键词：面条、粥、馒头、饼、包子、盒子、炒饭（清淡款）
+    breakfastStaple: ['面', '粥', '馒头', '饼', '包子', '盒子', '吐司', '面包', '蛋花', '煎蛋'],
+    // 早餐不适合：重油、硬菜、红烧、炖、糖醋、油炸、火锅、炒（大部分）
+    heavyForBreakfast: ['红烧', '糖醋', '炖', '啤酒鸭', '可乐鸡', '椒盐', '宫保', '鱼香', '三杯', '麻婆', '煲仔', '焖饭'],
+    // 轻主食（晚餐友好）：粥、面、小份饭、馒头
+    lightStaple: ['粥', '面', '馒头', '蛋花', '饼'],
+    // 晚餐重菜（应排除）
+    heavyForDinner: ['红烧肉', '啤酒鸭', '糖醋里脊', '椒盐', '可乐鸡翅'],
+    // 荤菜关键词
+    meat: ['鸡', '鸭', '牛', '猪', '肉', '排骨', '虾', '鱼', '扇贝', '蛤蜊', '肥牛', '腊肠', '里脊', '鸡翅'],
+    // 轻荤（晚餐友好）：鱼、虾、鸡胸、豆腐鸡蛋
+    lightMeat: ['鱼', '虾', '鸡胸', '蒸蛋', '豆腐', '鸡蛋', '蛤蜊', '柠檬鸡', '金针菇'],
+    // 蔬菜类关键词
+    veg: ['菜', '菠菜', '生菜', '黄瓜', '土豆丝', '包菜', '娃娃菜', '木耳', '西兰花', '豆腐', '茄子', '凉拌', '丝瓜', '番茄', '冬瓜', '玉米'],
+    // 轻蛋白（早餐搭配）：鸡蛋、豆腐、凉菜、清淡小炒
+    lightProtein: ['蛋', '豆腐', '皮蛋', '凉拌']
+};
 
 class FamilyMenu {
     constructor() {
         this.data = null;          // 原始 JSON 数据
-        this.customDishes = [];    // 用户自定义菜品（从 localStorage）
+        this.customDishes = [];    // 用户自定义菜品
         this.keyword = '';
+        this.activeMeal = 'lunch'; // 当前餐段
+        this.mealDraws = {};       // { breakfast: [...], lunch: [...], dinner: [...] }
         this.init();
     }
 
@@ -24,6 +75,8 @@ class FamilyMenu {
             this.loadCustomDishes();
             this.renderSiteInfo();
             this.populateCategorySelect();
+            this.activeMeal = this.resolveInitialMeal();
+            this.renderMealTabs();
             this.renderDailyDraw();
             this.renderMenu();
             this.updateBrowseCount();
