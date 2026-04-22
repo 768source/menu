@@ -1024,3 +1024,148 @@ body.modal-open { overflow: hidden; }
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.06); }
 }
+
+/* ====================================================
+   手机端修复 & 优化（Mobile Fixes）
+   解决：安全区、iOS 自动放大、溢出、布局挤压等
+   ==================================================== */
+
+/* iOS: 防止 input 字号 <16px 触发页面自动放大 */
+input,
+select,
+textarea {
+    font-size: 16px;
+}
+
+/* 长菜名保护：所有可能显示菜名的地方不允许被撑破 */
+.dish-name,
+.flip-name,
+.recipe-hero h2 {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* main 负外边距在小屏容易"撞" hero，移动端取消 */
+@media (max-width: 768px) {
+    main {
+        margin-top: 16px;
+    }
+
+    /* 去掉 hero 装饰层的 emoji 噪点（移动端容易漏出） */
+    .hero::before { display: none; }
+
+    /* 紧凑 hero 再紧凑一些 */
+    .hero-compact {
+        padding: 24px 16px 24px;
+    }
+
+    /* 抽卡容器左右 padding 缩小，避免超出屏幕 */
+    .daily-draw {
+        padding: 18px 14px 20px;
+        margin-bottom: 20px;
+        border-radius: 18px;
+    }
+
+    /* 标题与按钮单独一行，左右布局，按钮不溢出 */
+    .draw-header {
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .draw-title-wrap { flex: 1; min-width: 0; }
+    .draw-actions { flex-shrink: 0; }
+    .btn-sm { padding: 7px 12px; font-size: 0.82rem; }
+
+    /* 抽卡摘要条：每项换行显示，不挤 */
+    .draw-summary {
+        font-size: 0.85rem;
+        line-height: 1.7;
+        padding: 10px 14px;
+    }
+
+    /* 搜索框竖排在工具栏内部 */
+    .browse-toolbar { gap: 8px; margin-bottom: 16px; }
+
+    /* 分割线在手机上改用简洁样式，避免横线压文字 */
+    .browse-divider::before,
+    .browse-divider::after {
+        display: none;
+    }
+    .browse-divider {
+        margin: 18px 0 14px;
+        font-size: 0.85rem;
+    }
+    .browse-divider span {
+        background: transparent;
+        padding: 0;
+    }
+
+    /* 浏览按钮尺寸适配 */
+    .btn-browse-more {
+        font-size: 0.95rem;
+        padding: 12px 22px;
+        max-width: 100%;
+    }
+
+    /* footer 提示缩一缩 */
+    .footer-note { font-size: 0.82rem; margin-top: 20px; }
+
+    /* 右下角悬浮按钮适配 iOS 安全区 */
+    .fab {
+        right: 16px;
+        bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Toast 位置同样避开安全区 */
+    .toast {
+        bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100% - 40px);
+        white-space: normal;
+        text-align: center;
+        line-height: 1.4;
+    }
+
+    /* 翻牌卡高度调整 + 内容更紧凑 */
+    .flip-card { height: 200px; }
+    .flip-slot { font-size: 0.66rem; padding: 3px 8px; }
+    .flip-emoji { font-size: 2.4rem; padding: 10px 0 4px; }
+    .flip-body { padding: 8px 10px 10px; }
+    .flip-name { font-size: 0.94rem; line-height: 1.25; }
+    .flip-meta { font-size: 0.68rem; margin-top: 3px; }
+
+    /* 卡背 "点击翻牌" 提示翻转后隐藏（避免 iOS 偶发穿透） */
+    .flip-card.flipped .flip-back::after { display: none; }
+
+    /* 详情弹窗：在手机上占满可视区，避免被 iOS 地址栏/键盘顶飞 */
+    .modal { padding: 10px; }
+    .modal-panel {
+        max-height: 92vh;
+        border-radius: 16px;
+    }
+
+    /* 详情弹窗里的删除按钮，手机上宽一点好点 */
+    .recipe-actions .btn { width: 100%; }
+
+    /* 添加表单弹窗在手机上的关闭按钮更大，手指好点 */
+    .modal-close {
+        top: 10px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* 超窄屏（iPhone SE 一代 320px 宽左右）额外处理 */
+@media (max-width: 380px) {
+    .hero-compact h1 { font-size: 1.7rem; }
+    .draw-title { font-size: 1.1rem; letter-spacing: 0; }
+    .draw-subtitle { font-size: 0.78rem; }
+    .daily-draw { padding: 14px 10px 18px; }
+    .draw-cards { gap: 8px; }
+    .flip-card { height: 180px; }
+    .flip-emoji { font-size: 2rem; }
+    .flip-name { font-size: 0.86rem; }
+    .flip-back { font-size: 1.3rem; letter-spacing: 2px; }
+
+    .btn-browse-more { padding: 11px 18px; font-size: 0.9rem; }
+}
