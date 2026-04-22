@@ -23,10 +23,10 @@ class FamilyMenu {
             await this.loadData();
             this.loadCustomDishes();
             this.renderSiteInfo();
-            this.renderCategoryNav();
             this.populateCategorySelect();
             this.renderDailyDraw();
             this.renderMenu();
+            this.updateBrowseCount();
             this.bindEvents();
         } catch (err) {
             console.error('加载菜单数据失败:', err);
@@ -85,16 +85,44 @@ class FamilyMenu {
         if (this.data.subtitle) subtitleEl.textContent = this.data.subtitle;
     }
 
-    // ---- 分类导航 ----
-    renderCategoryNav() {
-        const nav = document.getElementById('category-nav');
-        nav.innerHTML = '';
-        this.data.categories.forEach(cat => {
-            const a = document.createElement('a');
-            a.href = `#cat-${cat.id}`;
-            a.textContent = `${cat.icon || ''} ${cat.name}`.trim();
-            nav.appendChild(a);
-        });
+    // ---- 菜谱总数提示 ----
+    updateBrowseCount() {
+        const el = document.getElementById('browse-count');
+        if (!el) return;
+        const total = this.data.categories.reduce((s, c) => s + c.dishes.length, 0)
+            + this.customDishes.length;
+        el.textContent = `${total} 道`;
+    }
+
+    // ---- 浏览菜谱展开/收起 ----
+    expandBrowse(scroll = true) {
+        const section = document.getElementById('browse-section');
+        const trigger = document.getElementById('browse-trigger-wrap');
+        if (!section || !trigger) return;
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+        section.setAttribute('aria-hidden', 'false');
+        trigger.classList.add('hidden');
+
+        if (scroll) {
+            setTimeout(() => {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 150);
+        }
+    }
+
+    collapseBrowse() {
+        const section = document.getElementById('browse-section');
+        const trigger = document.getElementById('browse-trigger-wrap');
+        if (!section || !trigger) return;
+        section.classList.remove('expanded');
+        section.classList.add('collapsed');
+        section.setAttribute('aria-hidden', 'true');
+        trigger.classList.remove('hidden');
+
+        // 滚回抽卡区
+        const draw = document.getElementById('daily-draw');
+        if (draw) setTimeout(() => draw.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     }
 
     // ---- 表单分类下拉 ----
@@ -339,13 +367,15 @@ class FamilyMenu {
         this.saveCustomDishes();
         this.closeAddForm();
         this.renderMenu();
+        this.updateBrowseCount();
         this.toast(`已添加「${name}」🎉`);
 
-        // 滚动到对应分类
+        // 自动展开浏览区并滚动到对应分类
+        this.expandBrowse(false);
         setTimeout(() => {
             const target = document.getElementById(`cat-${categoryId}`);
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
+        }, 250);
     }
 
     deleteCustomDish(id) {
@@ -357,6 +387,7 @@ class FamilyMenu {
         this.saveCustomDishes();
         this.closeRecipe();
         this.renderMenu();
+        this.updateBrowseCount();
         this.toast(`已删除「${dish.name}」`);
     }
 
@@ -403,6 +434,18 @@ class FamilyMenu {
         const redrawBtn = document.getElementById('btn-redraw');
         if (redrawBtn) {
             redrawBtn.addEventListener('click', () => this.redraw());
+        }
+
+        // 浏览完整菜谱
+        const browseBtn = document.getElementById('btn-browse-more');
+        if (browseBtn) {
+            browseBtn.addEventListener('click', () => this.expandBrowse(true));
+        }
+
+        // 收起
+        const collapseBtn = document.getElementById('btn-collapse');
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => this.collapseBrowse());
         }
     }
 
@@ -583,7 +626,16 @@ class FamilyMenu {
         const all = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
         if (all.length === 0) return;
         const allFlipped = all.every(c => c.classList.contains('flipped'));
-        if (allFlipped) this.renderDrawSummary(true);
+        if (allFlipped) {
+            this.renderDrawSummary(true);
+            // 高亮一下“浏览完整菜谱”按钮，提示用户可以看更多
+            const trigger = document.getElementById('browse-trigger-wrap');
+            if (trigger && !trigger.classList.contains('hidden')) {
+                trigger.style.animation = 'none';
+                void trigger.offsetWidth;
+                trigger.style.animation = 'pulse 1.2s ease 2';
+            }
+        }
     }
 
     renderDrawSummary(reveal) {

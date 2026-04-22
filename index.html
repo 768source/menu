@@ -7,15 +7,10 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="hero">
+    <header class="hero hero-compact">
         <div class="hero-inner">
             <h1 id="site-title">家的味道</h1>
             <p id="site-subtitle" class="subtitle"></p>
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="search-input" placeholder="搜索菜名、食材、标签…（比如：番茄、下饭、10分钟）">
-            </div>
-            <nav id="category-nav" class="category-nav"></nav>
         </div>
     </header>
 
@@ -39,9 +34,34 @@
             <div class="draw-summary" id="draw-summary"></div>
         </section>
 
-        <section id="menu-container">
-            <!-- 菜谱内容通过 JS 动态生成 -->
+        <!-- 抽完卡后才展开的菜谱浏览区 -->
+        <section id="browse-section" class="browse-section collapsed" aria-hidden="true">
+            <div class="browse-divider">
+                <span>— 或者看看别的菜 —</span>
+            </div>
+            <div class="browse-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="搜索菜名、食材、标签…（比如：番茄、下饭、10分钟）">
+                </div>
+                <button type="button" id="btn-collapse" class="btn btn-ghost btn-sm" title="收起">
+                    ▲ 收起
+                </button>
+            </div>
+
+            <section id="menu-container">
+                <!-- 菜谱内容通过 JS 动态生成 -->
+            </section>
         </section>
+
+        <!-- 未展开时的引导按钮 -->
+        <div id="browse-trigger-wrap" class="browse-trigger-wrap">
+            <button type="button" id="btn-browse-more" class="btn-browse-more">
+                📖 浏览完整菜谱
+                <span class="browse-count" id="browse-count"></span>
+            </button>
+        </div>
+
         <p class="footer-note">💡 点击卡片查看做法 · 点击右下角 <b>➕</b> 添加自己想吃的菜</p>
     </main>
 
