@@ -500,10 +500,18 @@ class FamilyMenu {
         if (collapseBtn) {
             collapseBtn.addEventListener('click', () => this.collapseBrowse());
         }
+
+        // 三餐 Tab 切换
+        document.querySelectorAll('#meal-tabs .meal-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const meal = btn.dataset.meal;
+                this.switchMeal(meal);
+            });
+        });
     }
 
     // ====================================================
-    // 今日抽卡
+    // 今日抽卡 · 三餐版
     // ====================================================
 
     /** 今日日期 key：yyyy-mm-dd */
@@ -529,55 +537,194 @@ class FamilyMenu {
         };
     }
 
-    /** 读取/生成当天的种子；同一天同一种子，换天自动变 */
-    getTodaySeed() {
+    /** 根据当前时间决定默认显示哪一餐（并读取上次停留的 Tab） */
+    resolveInitialMeal() {
+        // 优先取上次访问时停留的 Tab（当天内有效）
+        try {
+            const raw = localStorage.getItem(ACTIVE_MEAL_KEY);
+            if (raw) {
+                const obj = JSON.parse(raw);
+                if (obj.date === this.todayKey() && MEAL_PLANS[obj.meal]) {
+                    return obj.meal;
+                }
+            }
+        } catch { /* ignore */ }
+
+        // 按时间自动定位
+        const h = new Date().getHours();
+        if (h >= 4 && h < 10) return 'breakfast';
+        if (h >= 10 && h < 14) return 'lunch';
+        return 'dinner';
+    }
+
+    saveActiveMeal() {
+        try {
+            localStorage.setItem(ACTIVE_MEAL_KEY, JSON.stringify({
+                date: this.todayKey(),
+                meal: this.activeMeal
+            }));
+        } catch { /* ignore */ }
+    }
+
+    /** 读取/生成指定餐段的种子；同一天同一餐段稳定 */
+    getMealSeed(meal) {
         const today = this.todayKey();
-        let cache = null;
+        let cache = {};
         try {
             const raw = localStorage.getItem(DRAW_SEED_KEY);
-            if (raw) cache = JSON.parse(raw);
+            if (raw) cache = JSON.parse(raw) || {};
         } catch { /* ignore */ }
 
-        if (cache && cache.date === today && typeof cache.seed === 'string') {
-            return cache.seed;
+        if (cache.date !== today) {
+            cache = { date: today, seeds: {} };
         }
-        const seed = `${today}-${Math.random().toString(36).slice(2, 10)}`;
-        try {
-            localStorage.setItem(DRAW_SEED_KEY, JSON.stringify({ date: today, seed }));
-        } catch { /* ignore */ }
-        return seed;
+        if (!cache.seeds) cache.seeds = {};
+
+        if (!cache.seeds[meal]) {
+            cache.seeds[meal] = `${today}-${meal}-${Math.random().toString(36).slice(2, 10)}`;
+            try {
+                localStorage.setItem(DRAW_SEED_KEY, JSON.stringify(cache));
+            } catch { /* ignore */ }
+        }
+        return cache.seeds[meal];
     }
 
-    /** 强制生成新种子（再摇一次） */
-    regenerateSeed() {
+    /** 强制更新某一餐的种子（再摇一次只影响当前餐段） */
+    regenerateMealSeed(meal) {
         const today = this.todayKey();
-        const seed = `${today}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        let cache = {};
         try {
-            localStorage.setItem(DRAW_SEED_KEY, JSON.stringify({ date: today, seed }));
+            const raw = localStorage.getItem(DRAW_SEED_KEY);
+            if (raw) cache = JSON.parse(raw) || {};
         } catch { /* ignore */ }
-        return seed;
+
+        if (cache.date !== today) cache = { date: today, seeds: {} };
+        if (!cache.seeds) cache.seeds = {};
+
+        cache.seeds[meal] = `${today}-${meal}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        try {
+            localStorage.setItem(DRAW_SEED_KEY, JSON.stringify(cache));
+        } catch { /* ignore */ }
+        return cache.seeds[meal];
     }
 
-    /** 抽一桌菜，返回每个卡槽对应的菜品 */
-    drawMeal(seed) {
+    /** 判断菜名/标签中是否包含任一关键词 */
+    _hit(text, keywords) {
+        return keywords.some(k => text.includes(k));
+    }
+
+    /** 给每道菜自动打标签：meals + nutrition */
+    annotateDish(dish) {
+        const name = dish.name || '';
+        const tags = (dish.tags || []).join(' ');
+        const text = `${name} ${tags}`;
+        const catId = dish.categoryId || dish._catId || '';
+
+        // 荤素
+        const isVeg = this._hit(text, NUTRITION_RULES.veg) && !this._hit(name, ['肉', '排骨', '鸡翅', '鸭']);
+        const isMeat = this._hit(name, NUTRITION_RULES.meat);
+        const isLightMeat = this._hit(text, NUTRITION_RULES.lightMeat);
+
+        // 是否重口味（早/晚餐不推荐）
+        const isHeavyBreakfast = this._hit(text, NUTRITION_RULES.heavyForBreakfast);
+        const isHeavyDinner = this._hit(name, NUTRITION_RULES.heavyForDinner);
+
+        // 主食判定
+        const isStaple = catId === 'staple';
+        const isBreakfastStaple = isStaple && this._hit(text, NUTRITION_RULES.breakfastStaple);
+        const isLightStaple = isStaple && this._hit(text, NUTRITION_RULES.lightStaple);
+
+        // 蛋白（早餐搭配）
+        const isLightProtein = this._hit(text, NUTRITION_RULES.lightProtein);
+
+        return {
+            isVeg,
+            isMeat,
+            isLightMeat,
+            isStaple,
+            isBreakfastStaple,
+            isLightStaple,
+            isLightProtein,
+            isHeavyBreakfast,
+            isHeavyDinner,
+            catId
+        };
+    }
+
+    /** 获取带标签的全部菜品列表（合并自定义） */
+    getAllDishesAnnotated() {
+        const list = [];
+        this.data.categories.forEach(cat => {
+            cat.dishes.forEach(d => {
+                const dish = { ...d, _catId: cat.id };
+                dish._nutri = this.annotateDish(dish);
+                list.push(dish);
+            });
+        });
+        this.customDishes.forEach(d => {
+            const dish = { ...d, _catId: d.categoryId };
+            dish._nutri = this.annotateDish(dish);
+            list.push(dish);
+        });
+        return list;
+    }
+
+    /** 根据卡槽需求从全量菜单中过滤候选池 */
+    pickPoolForSlot(slotDef, allDishes, mealKey) {
+        const need = slotDef.need || [];
+        const fallbackCats = slotDef.fallback || [];
+
+        // 第一优先：按营养需求智能过滤
+        let pool = allDishes.filter(d => {
+            const n = d._nutri;
+            // 早餐硬性过滤：不出现重口味
+            if (mealKey === 'breakfast' && n.isHeavyBreakfast) return false;
+            // 晚餐软过滤：尽量不出现过重的菜
+            if (mealKey === 'dinner' && n.isHeavyDinner) return false;
+
+            return need.some(tag => {
+                switch (tag) {
+                    case 'staple': return n.isStaple;
+                    case 'staple-breakfast': return n.isBreakfastStaple;
+                    case 'staple-light': return n.isLightStaple || n.isBreakfastStaple;
+                    case 'meat': return n.isMeat && !n.isVeg;
+                    case 'meat-light': return n.isLightMeat && !n.isHeavyDinner;
+                    case 'veg': return n.isVeg && !n.isMeat;
+                    case 'veg-light': return n.isVeg;
+                    case 'soup': return n.catId === 'soup';
+                    case 'protein-light': return n.isLightProtein;
+                    default: return false;
+                }
+            });
+        });
+
+        // 没有命中智能规则时，回退到分类池
+        if (pool.length === 0) {
+            pool = allDishes.filter(d => fallbackCats.includes(d._catId));
+        }
+
+        return pool;
+    }
+
+    /** 抽一餐，返回每个卡槽对应的菜品 */
+    drawMealFor(mealKey, seed) {
+        const plan = MEAL_PLANS[mealKey];
+        if (!plan) return [];
         const rand = this.seededRandom(seed);
-        const merged = this.getMergedCategories();
-        const catMap = new Map(merged.map(c => [c.id, c]));
+        const allDishes = this.getAllDishesAnnotated();
         const usedIds = new Set();
 
-        const picks = DRAW_SLOTS.map(slot => {
-            // 收集此卡槽可用的候选菜
-            const pool = [];
-            slot.categoryIds.forEach(cid => {
-                const cat = catMap.get(cid);
-                if (!cat) return;
-                cat.dishes.forEach(d => {
-                    if (!usedIds.has(d.id)) pool.push(d);
-                });
-            });
-            if (pool.length === 0) return { slot: slot.slot, dish: null };
+        return plan.slots.map(slotDef => {
+            let pool = this.pickPoolForSlot(slotDef, allDishes, mealKey)
+                .filter(d => !usedIds.has(d.id));
 
-            // 二人食加权：带 "二人食" 标签的菜品双倍命中
+            // 如果去重后空了，允许重复（极端情况：菜品太少）
+            if (pool.length === 0) {
+                pool = this.pickPoolForSlot(slotDef, allDishes, mealKey);
+            }
+            if (pool.length === 0) return { slot: slotDef.slot, dish: null };
+
+            // 二人食加权
             const weighted = [];
             pool.forEach(d => {
                 const w = (d.tags || []).includes('二人食') ? 2 : 1;
@@ -586,24 +733,39 @@ class FamilyMenu {
 
             const picked = weighted[Math.floor(rand() * weighted.length)];
             usedIds.add(picked.id);
-            return { slot: slot.slot, dish: picked };
+            return { slot: slotDef.slot, dish: picked };
         });
-
-        return picks;
     }
 
-    /** 渲染今日抽卡区块（首次进入：卡背；点击或已翻则正面） */
-    renderDailyDraw() {
-        const seed = this.getTodaySeed();
-        this.currentDraw = this.drawMeal(seed);
+    /** 渲染餐段 Tab 的激活态 */
+    renderMealTabs() {
+        const tabs = document.querySelectorAll('#meal-tabs .meal-tab');
+        tabs.forEach(btn => {
+            const isActive = btn.dataset.meal === this.activeMeal;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+    }
 
-        // 日期展示
+    /** 渲染今日抽卡区块（当前餐段） */
+    renderDailyDraw() {
+        const mealKey = this.activeMeal;
+        const plan = MEAL_PLANS[mealKey];
+        const seed = this.getMealSeed(mealKey);
+        this.mealDraws[mealKey] = this.drawMealFor(mealKey, seed);
+        this.currentDraw = this.mealDraws[mealKey];
+
+        // 日期 + 餐段展示
         const dateEl = document.getElementById('draw-date');
         if (dateEl) {
             const today = this.todayKey();
             const weekday = ['周日','周一','周二','周三','周四','周五','周六'][new Date().getDay()];
-            dateEl.textContent = `${today} · ${weekday} — 点击卡片翻牌`;
+            dateEl.textContent = `${today} · ${weekday} · ${plan.icon} ${plan.name} — 点击卡片翻牌`;
         }
+
+        // 餐段搭配提示
+        const tipEl = document.getElementById('meal-tip');
+        if (tipEl) tipEl.textContent = plan.tip;
 
         // 渲染卡片
         const container = document.getElementById('draw-cards');
@@ -616,6 +778,66 @@ class FamilyMenu {
         });
 
         this.renderDrawSummary(false);
+    }
+
+    /** 切换餐段 */
+    switchMeal(mealKey) {
+        if (!MEAL_PLANS[mealKey] || mealKey === this.activeMeal) return;
+        this.activeMeal = mealKey;
+        this.saveActiveMeal();
+        this.renderMealTabs();
+        this.renderDailyDraw();
+    }
+
+    checkAllFlipped() {
+        const all = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
+        if (all.length === 0) return;
+        const allFlipped = all.every(c => c.classList.contains('flipped'));
+        if (allFlipped) {
+            this.renderDrawSummary(true);
+            const trigger = document.getElementById('browse-trigger-wrap');
+            if (trigger && !trigger.classList.contains('hidden')) {
+                trigger.style.animation = 'none';
+                void trigger.offsetWidth;
+                trigger.style.animation = 'pulse 1.2s ease 2';
+            }
+        }
+    }
+
+    renderDrawSummary(reveal) {
+        const el = document.getElementById('draw-summary');
+        if (!el) return;
+        if (!reveal || !this.currentDraw) {
+            el.classList.add('hidden');
+            el.innerHTML = '';
+            return;
+        }
+        const plan = MEAL_PLANS[this.activeMeal];
+        const list = this.currentDraw
+            .filter(x => x.dish)
+            .map(x => `<b>${this.escape(x.slot)}</b>「${this.escape(x.dish.name)}」`)
+            .join(' · ');
+        el.classList.remove('hidden');
+        el.innerHTML = `${plan.icon} 今日${plan.name}：${list}`;
+    }
+
+    /** 再摇一次：只重摇当前餐段 */
+    redraw() {
+        const cards = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
+        cards.forEach(c => {
+            c.classList.remove('shaking');
+            void c.offsetWidth;
+            c.classList.add('shaking');
+        });
+        setTimeout(() => {
+            cards.forEach(c => c.classList.remove('flipped'));
+        }, 300);
+        setTimeout(() => {
+            this.regenerateMealSeed(this.activeMeal);
+            this.renderDailyDraw();
+            const plan = MEAL_PLANS[this.activeMeal];
+            this.toast(`🎲 已重新抽取${plan.name}`);
+        }, 700);
     }
 
     createFlipCard({ slot, dish }) {
@@ -673,62 +895,6 @@ class FamilyMenu {
         });
 
         return card;
-    }
-
-    checkAllFlipped() {
-        const all = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
-        if (all.length === 0) return;
-        const allFlipped = all.every(c => c.classList.contains('flipped'));
-        if (allFlipped) {
-            this.renderDrawSummary(true);
-            // 高亮一下“浏览完整菜谱”按钮，提示用户可以看更多
-            const trigger = document.getElementById('browse-trigger-wrap');
-            if (trigger && !trigger.classList.contains('hidden')) {
-                trigger.style.animation = 'none';
-                void trigger.offsetWidth;
-                trigger.style.animation = 'pulse 1.2s ease 2';
-            }
-        }
-    }
-
-    renderDrawSummary(reveal) {
-        const el = document.getElementById('draw-summary');
-        if (!el) return;
-        if (!reveal || !this.currentDraw) {
-            el.classList.add('hidden');
-            el.innerHTML = '';
-            return;
-        }
-        const list = this.currentDraw
-            .filter(x => x.dish)
-            .map(x => `<b>${this.escape(x.slot)}</b>「${this.escape(x.dish.name)}」`)
-            .join(' · ');
-        el.classList.remove('hidden');
-        el.innerHTML = `🎉 今日两人食：${list}`;
-    }
-
-    /** 再摇一次：生成新种子、抖动动画、翻回背面再翻开 */
-    redraw() {
-        const cards = Array.from(document.querySelectorAll('#draw-cards .flip-card'));
-
-        // 先抖动
-        cards.forEach(c => {
-            c.classList.remove('shaking');
-            void c.offsetWidth; // reflow
-            c.classList.add('shaking');
-        });
-
-        // 先全部翻回去
-        setTimeout(() => {
-            cards.forEach(c => c.classList.remove('flipped'));
-        }, 300);
-
-        // 再生成新内容并重新渲染
-        setTimeout(() => {
-            this.regenerateSeed();
-            this.renderDailyDraw();
-            this.toast('🎲 已重新抽取今日菜单');
-        }, 700);
     }
 
     // ---- 轻提示 ----
